@@ -1,4 +1,4 @@
-## On an AWS EC2 m4.16xlarge instance
+## On an AWS EC2 r4.8xlarge instance
 
 ## Install stuff
 sudo apt-get update
@@ -6,7 +6,7 @@ sudo apt-get update
 #sudo docker pull meren/anvio
 
 # for assembly
-sudo apt-get install python
+sudo apt-get install -y python
 wget http://cab.spbu.ru/files/release3.10.1/SPAdes-3.10.1-Linux.tar.gz
 tar xvzf SPAdes-3.10.1-Linux.tar.gz
 cd SPAdes-3.10.1-Linux
@@ -14,11 +14,11 @@ sudo cp bin/* /usr/local/bin/
 sudo cp -r share/spades /usr/local/share/
 
 # Trim
-sudo apt-get install unzip
+sudo apt-get install -y unzip
 wget http://www.bioinformatics.babraham.ac.uk/projects/trim_galore/trim_galore_v0.4.4.zip
 unzip trim_galore_v0.4.4.zip
 sudo mv trim_galore /usr/local/bin/
-sudo apt-get install python-pip
+sudo apt-get install -y python-pip
 sudo pip install --upgrade cutadapt
 
 sudo pip install --upgrade awscli
@@ -31,6 +31,7 @@ sudo cp -r sratoolkit.2.8.2-1-ubuntu64/bin/* /usr/local/bin/
 
 # bowtie2
 wget https://downloads.sourceforge.net/project/bowtie-bio/bowtie2/2.3.1/bowtie2-2.3.1-linux-x86_64.zip
+unzip bowtie2-2.3.1-linux-x86_64.zip
 sudo mv bowtie2-2.3.1/bowtie2* /usr/local/bin/
 
 
@@ -46,19 +47,8 @@ wget ftp://ftp-trace.ncbi.nih.gov/sra/sra-instant/reads/ByRun/sra/SRR/SRR356/SRR
 fastq-dump --split-files SRR3569623.sra &
 rm -f SRR3569623.sra
 
-# trim
-mkdir kaolinite
-trim_galore --paired --output_dir kaolinite SRR3569833_1.fastq SRR3569833_2.fastq
-rm -f SRR3569833_* kaolinite/*val*
-mkdir bentonite
-trim_galore --paired --output_dir bentonite SRR3569623_1.fastq SRR3569623_2.fastq
-rm -f SRR3569623_* bentonite/*val*
-
-# assemble
-spades.py -o kaolinite --meta -t 8 -m 30 -1 kaolinite/SRR3569833_1_trimmed.fq -2 kaolinite/SRR3569833_2_trimmed.fq 
-aws s3 cp --recursive SOMETHING SOMETHING
-spades.py -o bentonite --meta -t 8 -m 30 -1 bentonite/SRR3569623_1_trimmed.fq -2 bentonite/SRR3569623_2_trimmed.fq 
-aws s3 cp --recursive SOMETHING SOMETHING
+# trim and assemble - bah ok turn this into a shell script and nohup it
+nohup mkdir kaolinite && trim_galore --paired --output_dir kaolinite SRR3569833_1.fastq SRR3569833_2.fastq && rm -f SRR3569833_* kaolinite/*trimmed.fq && spades.py -o kaolinite --meta -t 32 -m 200 -1 kaolinite/SRR3569833_1_val_1.fq -2 kaolinite/SRR3569833_2_val_2.fq && aws s3 cp --recursive kaolinite s3://pluton-sbx/anvio-demo/kaolinite && mkdir bentonite && trim_galore --paired --output_dir bentonite SRR3569623_1.fastq SRR3569623_2.fastq && rm -f SRR3569623_* bentonite/*trimmed.fq && spades.py -o bentonite --meta -t 32 -m 200 -1 bentonite/SRR3569623_1_val_1.fq -2 bentonite/SRR3569623_2_val_2.fq && aws s3 cp --recursive bentonite s3://pluton-sbx/anvio-demo/bentonite & 
 
 
 
