@@ -1,4 +1,4 @@
-## On an AWS EC2 r4.8xlarge instance
+## On an AWS EC2 r4.16xlarge instance
 
 ## Install stuff
 sudo apt-get update
@@ -40,17 +40,35 @@ sudo mv bowtie2-2.3.1/bowtie2* /usr/local/bin/
 mkdir soil_metagenome
 cd soil_metagenome
 wget ftp://ftp-trace.ncbi.nih.gov/sra/sra-instant/reads/ByRun/sra/SRR/SRR356/SRR3569833/SRR3569833.sra
-fastq-dump --split-files SRR3569833.sra &
+fastq-dump --split-files SRR3569833.sra
 rm -f SRR3569833.sra
-# OR
 wget ftp://ftp-trace.ncbi.nih.gov/sra/sra-instant/reads/ByRun/sra/SRR/SRR356/SRR3569623/SRR3569623.sra
-fastq-dump --split-files SRR3569623.sra &
+fastq-dump --split-files SRR3569623.sra
 rm -f SRR3569623.sra
 
-# trim and assemble - bah ok turn this into a shell script and nohup it
-nohup mkdir kaolinite && trim_galore --paired --output_dir kaolinite SRR3569833_1.fastq SRR3569833_2.fastq && rm -f SRR3569833_* kaolinite/*trimmed.fq && spades.py -o kaolinite --meta -t 32 -m 200 -1 kaolinite/SRR3569833_1_val_1.fq -2 kaolinite/SRR3569833_2_val_2.fq && aws s3 cp --recursive kaolinite s3://pluton-sbx/anvio-demo/kaolinite && mkdir bentonite && trim_galore --paired --output_dir bentonite SRR3569623_1.fastq SRR3569623_2.fastq && rm -f SRR3569623_* bentonite/*trimmed.fq && spades.py -o bentonite --meta -t 32 -m 200 -1 bentonite/SRR3569623_1_val_1.fq -2 bentonite/SRR3569623_2_val_2.fq && aws s3 cp --recursive bentonite s3://pluton-sbx/anvio-demo/bentonite & 
+nano -w trim_and_assemble.sh
+## in trim_and_assemble.sh
+#!/bin/bash
+mkdir kaolinite
+trim_galore --paired --output_dir kaolinite SRR3569833_1.fastq SRR3569833_2.fastq
+rm -f SRR3569833_* kaolinite/*trimmed.fq
+spades.py -o kaolinite --meta -t 64 -m 488 -1 kaolinite/SRR3569833_1_val_1.fq -2 kaolinite/SRR3569833_2_val_2.fq
+aws s3 cp --recursive kaolinite s3://pluton-sbx/anvio-demo/kaolinite
+mkdir bentonite
+trim_galore --paired --output_dir bentonite SRR3569623_1.fastq SRR3569623_2.fastq
+rm -f SRR3569623_* bentonite/*trimmed.fq
+spades.py -o bentonite --meta -t 64 -m 488 -1 bentonite/SRR3569623_1_val_1.fq -2 bentonite/SRR3569623_2_val_2.fq
+aws s3 cp --recursive bentonite s3://pluton-sbx/anvio-demo/bentonite
 
+nano -w ~/.profile
+## add to .profile
+export AWS_ACCESS_KEY_ID=*yourkey*
+export AWS_SECRET_ACCESS_KEY=*yoursecret*
 
+source ~/.profile
+
+chmod a+x trim_and_assemble.sh
+nohup ./trim_and_assemble.sh &
 
 
 # Run anvio - TODO - or maybe on a lighter machine, m4.2xlarge?
