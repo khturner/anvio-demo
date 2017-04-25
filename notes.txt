@@ -39,26 +39,43 @@ sudo mv bowtie2-2.3.1/bowtie2* /usr/local/bin/
 # Get soil metagenome reads (https://trace.ncbi.nlm.nih.gov/Traces/sra/sra.cgi?run=SRR3569833)
 mkdir soil_metagenome
 cd soil_metagenome
-wget ftp://ftp-trace.ncbi.nih.gov/sra/sra-instant/reads/ByRun/sra/SRR/SRR356/SRR3569833/SRR3569833.sra
-fastq-dump --split-files SRR3569833.sra
-rm -f SRR3569833.sra
-wget ftp://ftp-trace.ncbi.nih.gov/sra/sra-instant/reads/ByRun/sra/SRR/SRR356/SRR3569623/SRR3569623.sra
-fastq-dump --split-files SRR3569623.sra
-rm -f SRR3569623.sra
+
+# kaolinite
+#wget ftp://ftp-trace.ncbi.nih.gov/sra/sra-instant/reads/ByRun/sra/SRR/SRR356/SRR3569833/SRR3569833.sra
+#fastq-dump --split-files SRR3569833.sra
+#rm -f SRR3569833.sra
+
+# bentonite
+#wget ftp://ftp-trace.ncbi.nih.gov/sra/sra-instant/reads/ByRun/sra/SRR/SRR356/SRR3569623/SRR3569623.sra
+#fastq-dump --split-files SRR3569623.sra
+#rm -f SRR3569623.sra
+
+# cucumber rhizosphere
+wget ftp://ftp-trace.ncbi.nih.gov/sra/sra-instant/reads/ByRun/sra/SRR/SRR908/SRR908272/SRR908272.sra
+fastq-dump --split-files SRR908272.sra
+rm -f SRR908272.sra
 
 nano -w trim_and_assemble.sh
 ## in trim_and_assemble.sh
 #!/bin/bash
-mkdir kaolinite
-trim_galore --paired --output_dir kaolinite SRR3569833_1.fastq SRR3569833_2.fastq
-rm -f SRR3569833_* kaolinite/*trimmed.fq
-spades.py -o kaolinite --meta -t 64 -m 488 -1 kaolinite/SRR3569833_1_val_1.fq -2 kaolinite/SRR3569833_2_val_2.fq
-aws s3 cp --recursive kaolinite s3://pluton-sbx/anvio-demo/kaolinite
-mkdir bentonite
-trim_galore --paired --output_dir bentonite SRR3569623_1.fastq SRR3569623_2.fastq
-rm -f SRR3569623_* bentonite/*trimmed.fq
-spades.py -o bentonite --meta -t 64 -m 488 -1 bentonite/SRR3569623_1_val_1.fq -2 bentonite/SRR3569623_2_val_2.fq
-aws s3 cp --recursive bentonite s3://pluton-sbx/anvio-demo/bentonite
+#mkdir kaolinite
+#trim_galore --paired --output_dir kaolinite SRR3569833_1.fastq SRR3569833_2.fastq
+#rm -f SRR3569833_* kaolinite/*trimmed.fq
+#spades.py -o kaolinite --meta -t 64 -m 488 -1 kaolinite/SRR3569833_1_val_1.fq -2 kaolinite/SRR3569833_2_val_2.fq
+#aws s3 cp --recursive kaolinite s3://pluton-sbx/anvio-demo/kaolinite
+
+#mkdir bentonite
+#trim_galore --paired --output_dir bentonite SRR3569623_1.fastq SRR3569623_2.fastq
+#rm -f SRR3569623_* bentonite/*trimmed.fq
+#spades.py -o bentonite --meta -t 64 -m 488 -1 bentonite/SRR3569623_1_val_1.fq -2 bentonite/SRR3569623_2_val_2.fq
+#aws s3 cp --recursive bentonite s3://pluton-sbx/anvio-demo/bentonite
+
+mkdir cucumber
+trim_galore --paired --output_dir cucumber SRR908272_1.fastq SRR908272_2.fastq
+rm -f SRR908272_* cucumber/*trimmed.fq
+spades.py -o cucumber --meta -t 32 -m 244 -1 cucumber/SRR908272_1_val_1.fq -2 cucumber/SRR908272_2_val_2.fq
+aws s3 cp --recursive cucumber s3://pluton-sbx/anvio-demo/cucumber
+
 
 nano -w ~/.profile
 ## add to .profile
@@ -69,7 +86,6 @@ source ~/.profile
 
 chmod a+x trim_and_assemble.sh
 nohup ./trim_and_assemble.sh &
-
 
 # Run anvio - TODO - or maybe on a lighter machine, m4.2xlarge?
 sudo docker run --rm -it -p 8080:8080 meren/anvio:latest
