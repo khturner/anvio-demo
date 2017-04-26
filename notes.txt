@@ -2,8 +2,7 @@
 
 ## Install stuff
 sudo apt-get update
-#sudo apt-get install docker.io
-#sudo docker pull meren/anvio
+sudo apt-get install docker.io
 
 # for assembly
 sudo apt-get install -y python
@@ -30,26 +29,11 @@ tar xvzf sratoolkit.2.8.2-1-ubuntu64.tar.gz
 sudo cp -r sratoolkit.2.8.2-1-ubuntu64/bin/* /usr/local/bin/
 
 # bowtie2
-wget https://downloads.sourceforge.net/project/bowtie-bio/bowtie2/2.3.1/bowtie2-2.3.1-linux-x86_64.zip
-unzip bowtie2-2.3.1-linux-x86_64.zip
-sudo mv bowtie2-2.3.1/bowtie2* /usr/local/bin/
-
+sudo apt-get install -y bowtie2
 
 ## Assemble some stuff
-# Get soil metagenome reads (https://trace.ncbi.nlm.nih.gov/Traces/sra/sra.cgi?run=SRR3569833)
 mkdir soil_metagenome
 cd soil_metagenome
-
-# kaolinite
-#wget ftp://ftp-trace.ncbi.nih.gov/sra/sra-instant/reads/ByRun/sra/SRR/SRR356/SRR3569833/SRR3569833.sra
-#fastq-dump --split-files SRR3569833.sra
-#rm -f SRR3569833.sra
-
-# bentonite
-#wget ftp://ftp-trace.ncbi.nih.gov/sra/sra-instant/reads/ByRun/sra/SRR/SRR356/SRR3569623/SRR3569623.sra
-#fastq-dump --split-files SRR3569623.sra
-#rm -f SRR3569623.sra
-
 # cucumber rhizosphere
 wget ftp://ftp-trace.ncbi.nih.gov/sra/sra-instant/reads/ByRun/sra/SRR/SRR908/SRR908272/SRR908272.sra
 fastq-dump --split-files SRR908272.sra
@@ -58,18 +42,6 @@ rm -f SRR908272.sra
 nano -w trim_and_assemble.sh
 ## in trim_and_assemble.sh
 #!/bin/bash
-#mkdir kaolinite
-#trim_galore --paired --output_dir kaolinite SRR3569833_1.fastq SRR3569833_2.fastq
-#rm -f SRR3569833_* kaolinite/*trimmed.fq
-#spades.py -o kaolinite --meta -t 64 -m 488 -1 kaolinite/SRR3569833_1_val_1.fq -2 kaolinite/SRR3569833_2_val_2.fq
-#aws s3 cp --recursive kaolinite s3://pluton-sbx/anvio-demo/kaolinite
-
-#mkdir bentonite
-#trim_galore --paired --output_dir bentonite SRR3569623_1.fastq SRR3569623_2.fastq
-#rm -f SRR3569623_* bentonite/*trimmed.fq
-#spades.py -o bentonite --meta -t 64 -m 488 -1 bentonite/SRR3569623_1_val_1.fq -2 bentonite/SRR3569623_2_val_2.fq
-#aws s3 cp --recursive bentonite s3://pluton-sbx/anvio-demo/bentonite
-
 mkdir cucumber
 trim_galore --paired --output_dir cucumber SRR908272_1.fastq SRR908272_2.fastq
 rm -f SRR908272_* cucumber/*trimmed.fq
@@ -87,6 +59,26 @@ source ~/.profile
 chmod a+x trim_and_assemble.sh
 nohup ./trim_and_assemble.sh &
 
-# Run anvio - TODO - or maybe on a lighter machine, m4.2xlarge?
-sudo docker run --rm -it -p 8080:8080 meren/anvio:latest
+## When done
+# Taxonomy - centrifuge
+cd
+git clone https://github.com/infphilo/centrifuge
+cd centrifuge
+git checkout 30e3f06ec35bc83e430b49a052f551a1e3edef42
+make
+echo "export PATH=\"$PATH:/home/ubuntu/centrifuge\"" >> ~/.profile
+source ~/.profile
+wget ftp://ftp.ccb.jhu.edu/pub/infphilo/centrifuge/data/p_compressed.tar.gz
+tar xvzf p_compressed.tar.gz
+cd ~/SPAdes-3.10.1-Linux/soil_metagenome/cucumber/
+sudo docker run --rm -v $PWD:/cucumber meren/anvio anvi-get-dna-sequences-for-gene-calls -c /cucumber/contigs.db -o /cucumber/gene-calls.fa
+centrifuge -f -x ~/centrifuge/p_compressed gene-calls.fa -S centrifuge_hits.tsv
+sudo docker run --rm -v $PWD:/cucumber meren/anvio anvi-import-taxonomy -c /cucumber/contigs.db -i /cucumber/centrifuge_report.tsv /cucumber/centrifuge_hits.tsv -p centrifuge
 
+#IPS
+cd
+wget ftp://ftp.ebi.ac.uk/pub/software/unix/iprscan/5/5.23-62.0/interproscan-5.23-62.0-64-bit.tar.gz
+tar xvzf interproscan-5.23-62.0-64-bit.tar.gz
+cd interproscan-5.23-62.0-64-bit
+sudo docker run --rm -v ~/SPAdes-3.10.1-Linux/soil_metagenome/cucumber:/cucumber meren/anvio anvi-get-aa-sequences-for-gene-calls -c /cucumber/contigs.db -o /cucumber/protein-sequences.fa
+nohup ./interproscan.sh -i ~/SPAdes-3.10.1-Linux/soil_metagenome/cucumber/protein-sequences.fa -f tsv -o ~/SPAdes-3.10.1-Linux/soil_metagenome/cucumber/interpro-output.tsv &
