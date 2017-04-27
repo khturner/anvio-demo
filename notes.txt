@@ -60,6 +60,16 @@ chmod a+x trim_and_assemble.sh
 nohup ./trim_and_assemble.sh &
 
 ## When done
+# Anvi'o stuff
+# Rename contigs
+# Generate contigs database
+
+# Run HMMs
+# Map
+bowtie2-build contigs.renamed.fasta cucumber
+bowtie2 -x cucumber -1 SRR908272_1_val_1.fq -2 SRR908272_2_val_2.fq -S map.sam -p 32
+samtools view -bT contigs.renamed.fasta map.sam > map.raw.bam
+
 # Taxonomy - centrifuge
 cd
 git clone https://github.com/infphilo/centrifuge
@@ -76,9 +86,18 @@ centrifuge -f -x ~/centrifuge/p_compressed gene-calls.fa -S centrifuge_hits.tsv
 sudo docker run --rm -v $PWD:/cucumber meren/anvio anvi-import-taxonomy -c /cucumber/contigs.db -i /cucumber/centrifuge_report.tsv /cucumber/centrifuge_hits.tsv -p centrifuge
 
 #IPS
+sudo add-apt-repository ppa:webupd8team/java
+sudo apt update; sudo apt install oracle-java8-installer
+sudo apt install oracle-java8-set-default
 cd
 wget ftp://ftp.ebi.ac.uk/pub/software/unix/iprscan/5/5.23-62.0/interproscan-5.23-62.0-64-bit.tar.gz
 tar xvzf interproscan-5.23-62.0-64-bit.tar.gz
 cd interproscan-5.23-62.0-64-bit
 sudo docker run --rm -v ~/SPAdes-3.10.1-Linux/soil_metagenome/cucumber:/cucumber meren/anvio anvi-get-aa-sequences-for-gene-calls -c /cucumber/contigs.db -o /cucumber/protein-sequences.fa
 nohup ./interproscan.sh -i ~/SPAdes-3.10.1-Linux/soil_metagenome/cucumber/protein-sequences.fa -f tsv -o ~/SPAdes-3.10.1-Linux/soil_metagenome/cucumber/interpro-output.tsv &
+sudo docker run --rm -v ~/SPAdes-3.10.1-Linux/soil_metagenome/cucumber:/cucumber meren/anvio anvi-import-functions -c /cucumber/contigs.db -i /cucumber/interpro-output.tsv -p interproscan
+
+# Init bam
+sudo docker run --rm -v ~/SPAdes-3.10.1-Linux/soil_metagenome/cucumber:/cucumber meren/anvio anvi-init-bam /cucumber/map.raw.bam -o /cucumber/map.bam
+# Profile contigs
+sudo docker run --rm -v ~/SPAdes-3.10.1-Linux/soil_metagenome/cucumber:/cucumber meren/anvio anvi-profile -i /cucumber/map.bam -c /cucumber/contigs.db --overwrite-output-destinations --num-threads 32 --cluster-contigs
